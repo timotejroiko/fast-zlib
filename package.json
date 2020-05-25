@@ -1,0 +1,21 @@
+{
+  "name": "fast-zlib-sync",
+  "version": "1.0.0",
+  "description": "Shared context synchronous compression",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "benchmark": "node benchmark.js"
+  },
+  "keywords": [
+    "zlib",
+    "sync",
+    "synchronous",
+    "shared",
+    "context",
+    "stream",
+    "zlib-stream"
+  ],
+  "author": "Timotej Valentin Rojko",
+  "license": "MIT",
+}
