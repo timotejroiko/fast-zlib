@@ -96,14 +96,28 @@ let deflate = zlib("deflate", {
 
 let inflate = zlib("inflate");
 
-// here, deflate.zlib represents the instance of zlib.createDeflate() that is held within the function
-// All compressors and decompressors have a .zlib property to access their internal zlib class
-deflate("123");
+// when flushing is off, the very first compression will produce a header that must be saved and passed to the decompressor
+let header = deflate("123");
 deflate("456");
 deflate("789");
+
+// here, deflate.zlib represents the instance of zlib.createDeflate() that is held within the function
+// all compressors and decompressors have a .zlib property to access their internal zlib class
 deflate.zlib.flush();
 let data = deflate.zlib.read();
+deflate("abc");
+deflate.zlib.flush();
+let data2 = deflate.zlib.read();
 
+// pass the header before starting the decompression
+inflate(header);
+console.log(inflate(data).toString()) // 123456789
+console.log(inflate(data2).toString()) // abc
+
+// alternatively you can pass a flag directly to the function to override the default flag
+deflate("123");
+deflate("456");
+let data = deflate("789", zlib.Z_SYNC_FLUSH);
 console.log(inflate(data).toString()) // 123456789
 ```
 
