@@ -122,8 +122,6 @@ inflate(chunk1) // works
 inflate(chunk2) // works
 ```
 
-When working with streams that fragment data, such as a TCP stream, you need to make sure each zlib block of data is fully avai
-
 ## Benchmark
 
 soon
