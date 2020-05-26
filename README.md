@@ -156,7 +156,7 @@ console.log(inflate(data2).toString()) // 123456789
 console.log(inflate(data3).toString()) // 789
 ```
 
-Zlib automatically appends all data chunks with 0,0,255,255 as a chunk delimiter but a custom Z_NO_APPEND flag can be used, which works like Z_SYNC_FLUSH but does not append a delimiter. Using this non-standard flag might increase performance but cannot be interchanged with Z_FULL_FLUSH and might introduce other unforeseen issues.
+Zlib automatically appends all data chunks with 0,0,255,255 as a chunk delimiter but a custom Z_NO_APPEND flag can be used to prevent this. This flag works like Z_SYNC_FLUSH and since it does not append a delimiter it might increase performance, but it cannot be interchanged with Z_FULL_FLUSH and can introduce other unforeseen issues.
 
 ```js
 let deflate = zlib("deflate");
