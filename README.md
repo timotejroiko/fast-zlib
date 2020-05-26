@@ -2,17 +2,17 @@
 
 Or how to trick node's native zlib module into performing shared context compression synchronously.
 
-Warning: This package uses node's undocumented private APIs which may change in future node.js versions.
+Warning: This package uses node's undocumented private APIs which may change in future node.js versions without notice.
 
-Method originally developed by [isaacs/minizlib](github.com/isaacs/minizlib)
+Method inspired from [isaacs/minizlib](https://github.com/isaacs/minizlib)
 
 ## Shared Context / Context Takeover
 
-Shared context means that for each chunk of data that is compressed, some information about it is stored in the compressor so that in the next chunk of data the compressor will reuse some of that information to compress more efficiently. The decompressor will do the same thing, each decompressed chunk leaves some data behind to help the decompressor decode the next chunk.
+Shared context means that for each chunk of data that is compressed, some information about it is stored in the compressor so that the next chunk can be more efficiently compressed by reusing saved information. The decompressor will do the same thing, each decompressed chunk leaves some data behind to help it decode the next chunk.
 
-Node's native zlib module does this asynchronously using transform streams to be as non-blocking as possible, however because zlib is cpu-bound, its an artificial async which can cause high latency and memory usage due to the overhead, data build up and memory fragmentation (see [ws#1369](https://github.com/websockets/ws/issues/1369) [node#8871](https://github.com/nodejs/node/issues/8871))
+Node's native zlib module does not offer a public API to perform this task synchronously and instead offers an asynchronous API using transform streams to be as non-blocking as possible, however because zlib is cpu-bound, its artificially made asynchronous which ends up having problems with performance, high latency and memory usage due to the overhead, and memory fragmentation, especially with small chunks of data. (see [ws#1369](https://github.com/websockets/ws/issues/1369) [node#8871](https://github.com/nodejs/node/issues/8871))
 
-This package provides a way to create a shared zlib context while synchronously processing chunks in the same way as any other sync compression functions and libraries.
+Node does however include all the necessary tools and functionality in its private and undocumented APIs, which this package makes use of to provide an easy way to synchronously process chunks in a shared zlib context.
 
 ## Usage
 
@@ -26,9 +26,9 @@ let inflate = zlib("inflate");
 
 let data = "123456789";
 
-let chunk1 = deflate(data); // Buffer(13) [120, 156, 50, 52, 50, 54, 49, 53, 51, 183, 176, 4, 8]  // first chunk of data sets up the shared context
-let chunk2 = deflate(data); // Buffer(5) [32, 67, 24, 3, 32]  // shared context kicks in
-let chunk3 = deflate(data); // Buffer(5) [128, 224, 12, 128, 0]  // and continues to apply to all subsequent chunks
+let chunk1 = deflate(data); // Buffer(17) [120, 156, 50, 52, 50, 54, 49, 53, 51, 183, 176, 4, 0, 0, 0, 255, 255]  // first chunk of data sets up the shared context
+let chunk2 = deflate(data); // Buffer(9) [50, 132, 49, 0, 0, 0, 0, 255, 255]  // shared context kicks in
+let chunk3 = deflate(data); // Buffer(8) [130, 51, 0, 0, 0, 0, 255, 255]  // and continues to apply to all subsequent chunks
 
 let decoded1 = inflate(chunk1);
 console.log(decoded1.toString()) // "123456789"
@@ -41,6 +41,8 @@ console.log(decoded3.toString()) // "123456789"
 ```
 
 ## Docs
+
+This package is essentially a function that returns a compressor or a decompressor function powered by zlib behind the scenes.
 
 All major zlib classes are supported:
 
@@ -56,74 +58,119 @@ let unzip = zlib("unzip");
 let gunzip = zlib("gunzip");
 let brotli = zlib("brotliCompress");
 let debrotli = zlib("brotliDecompress");
-
-let data = gzip("wefwefwef");
-console.log(unzip(data).toString());
 ```
 
-Each zlib class can also be passed an options object as per zlib's documentation - [https://nodejs.org/docs/latest-v12.x/api/zlib.html](https://nodejs.org/docs/latest-v12.x/api/zlib.html)
+By default, compressors and decompressors accept any Buffer-compatible input (Buffer, TypedArray, DataView, ArrayBuffer, string) and return a Buffer.
 
 ```js
-let zlib = require("fast-zlib-sync");
+let data = gzip("wefwefwef");
+console.log(data) // compressed buffer
 
-let inflateRaw = zlib("inflateRaw", {
+let decompressed = unzip(data);
+console.log(decompressed) // decompressed buffer
+console.log(decompressed.toString()); // wefwefwef
+```
+
+Each zlib class can be passed an options object as per zlib's documentation - [https://nodejs.org/docs/latest-v12.x/api/zlib.html](https://nodejs.org/docs/latest-v12.x/api/zlib.html). Additionally, an extra **unsafe** option is available in this package.
+
+If unsafe mode is enabled, only Buffers are accepted as input and the resulting Buffers are returned by reference instead of copy. This makes processing faster because it returns a reference of the value held inside the function instead of returning a copy of it, but the returned value must be immediately consumed, copied, transformed or dispatched, because next chunk will overwrite this value and update all references including those outside the function.
+
+```js
+let deflateRaw = zlib("deflateRaw", {
 	chunkSize: 64 * 1024,
 });
-```
-
-Additionally, an extra **unsafe** option is available.
-
-```js
-let zlib = require("fast-zlib-sync");
-
 let inflateRaw = zlib("inflateRaw", {
-	unsafe: true
+	chunkSize: 64 * 1024,
+	unsafe:true
 });
+
+let data = deflateRaw("abc");
+let result = inflateRaw(data);
+console.log(result.toString()) // abc
+
+let data2 = deflateRaw("123");
+let result2 = inflateRaw(data2);
+console.log(result.toString()) // 123
+console.log(result2.toString()) // 123
 ```
 
-By default, compressors and decompressors accept any Buffer-compatible input (Buffer | TypedArray | DataView | ArrayBuffer | string) and return a Buffer.
-
-If unsafe mode is enabled, only Buffers are accepted as inputs and the resulting Buffers are returned as reference instead of copy. This can potentially make processing faster, but the returned value must be immediately consumed, copied, transformed or dispatched, because next processed chunk will overwrite the previous one.
-
-This library sets Z_SYNC_FLUSH as the default flush flag in order to process data immediately. If you want to experiment with flags that offer more control over the process, you can access the internal zlib class methods from an included zlib property.
+This library sets Z_SYNC_FLUSH as the default flush flag in order to process data immediately. For advanced usage and manual control of the compression process, zlib flags can be set as an option and also passed directly to the function.
 
 ```js
-let zlib = require("fast-zlib-sync");
-
 let deflate = zlib("deflate", {
-	flush: zlib.Z_NO_FLUSH // all of zlib's constants are accessible from fast-zlib-sync
+	flush: zlib.Z_NO_FLUSH // set default flag to Z_NO_FLUSH. all of zlib's constants are accessible from this package
 });
-
 let inflate = zlib("inflate");
 
-// when flushing is off, the very first compression will produce a header that must be saved and passed to the decompressor
+// when deflate is set to Z_NO_FLUSH, the very first compression will produce a header that must be passed to the decompressor
+// this header doesnt exist in deflateRaw
 let header = deflate("123");
 deflate("456");
 deflate("789");
 
-// here, deflate.zlib represents the instance of zlib.createDeflate() that is held within the function
-// all compressors and decompressors have a .zlib property to access their internal zlib class
+let data = deflate("hij", zlib.Z_SYNC_FLUSH);
+
+inflate(header);
+let result = inflate(data);
+console.log(result.toString()) // 123456789hij
+```
+
+The function's internal zlib instance is also exposed via a .zlib property for advanced usage.
+
+```js
+let deflate = zlib("deflate");
+let deflate = zlib("inflate");
+
+let header = deflate("789", zlib.Z_NO_FLUSH);
+deflate("789", zlib.Z_NO_FLUSH);
+
+// here deflate.zlib is an instance of zlib.createDeflate() and we can use its internal functions
 deflate.zlib.flush();
 let data = deflate.zlib.read();
-deflate("abc");
-deflate.zlib.flush();
-let data2 = deflate.zlib.read();
 
-// pass the header before starting the decompression
 inflate(header);
-console.log(inflate(data).toString()) // 123456789
-console.log(inflate(data2).toString()) // abc
+console.log(inflate(data).toString()); // 789789
+```
 
-// alternatively you can pass a flag directly to the function to override the default flag
-deflate("123");
-deflate("456");
+Flush flags can be used to achieve fine control over the process and create checkpoints from where decompression can resume
+
+```js
+let deflate = zlib("deflateRaw");
+let inflate = zlib("inflateRaw");
+
+deflate("123", zlib.Z_NO_FLUSH); // there is no header in deflateRaw so we can skip it
+deflate("456", zlib.Z_NO_FLUSH);
 let data = deflate("789", zlib.Z_SYNC_FLUSH);
 console.log(inflate(data).toString()) // 123456789
+
+deflate("123");
+deflate("456");
+let data2 = deflate("789", zlib.Z_FULL_FLUSH); // Z_FULL_FLUSH creates a checkpoint from where the decompressor can restart
+console.log(inflate(data2).toString()) // 123456789
+
+let data3 = deflate("789", zlib.Z_SYNC_FLUSH);
+console.log(inflate(data3).toString()) // 789
+
+// we can restart the decompression sequence from a FULL_FLUSH block at any time
+console.log(inflate(data2).toString()) // 123456789
+console.log(inflate(data3).toString()) // 789
+```
+
+Zlib automatically appends all data chunks with 0,0,255,255 as a chunk delimiter but a special `true` flag can be used to disable this behavior. Using this flag might increase performance but can also cause unforseen issues.
+
+```js
+let deflate = zlib("deflate");
+
+let data = "123456789";
+
+let chunk1 = deflate(data, true); // Buffer(13) [120, 156, 50, 52, 50, 54, 49, 53, 51, 183, 176, 4, 8]
+let chunk2 = deflate(data, true); // Buffer(5) [32, 67, 24, 3, 32]
+let chunk3 = deflate(data, true); // Buffer(5) [128, 224, 12, 128, 0]
 ```
 
 ## Caveats
 
-Because of the shared context, decompression must be done in exactly the same order as compression because each chunk sequentially complements the previous and the next. Attempting to decode a chunk out of order will throw an error and invalidate the decompressor's internal state, forcing you to create a new decompressor and start again from the beginning, or destroying both and starting a new compressor and decompressor pair;
+Because of the shared context, decompression must be done in exactly the same order as compression because each chunk sequentially complements the previous and the next. Attempting to decode a chunk out of order will throw an error and invalidate the decompressor's internal state, forcing you to create a new decompressor and start again from the beginning or from the last checkpoint, or destroying both and starting a new compressor and decompressor pair.
 
 ```js
 let chunk1 = deflate(data)
@@ -134,6 +181,21 @@ inflate(chunk1) // error because the inflator is now invalid
 inflate = fastzlib("inflate") // create a new inflator and start from the beginning
 inflate(chunk1) // works
 inflate(chunk2) // works
+```
+
+When working with streams where fragmentation can occur, such as TCP streams, its a good idea to watch for zlib's delimiter and join chunks together. Decompression will still work with incomplete chunks but will return incomplete data that you will need to join yourself.
+
+```js
+stream.on("data", chunk => {
+	let data;
+	if(chunk.length >= 4 && chunk.readUInt32BE(chunk.length - 4) === 0xffff) { // check if the chunk ends with 0,0,255,255
+		data = inflate(chunk, zlib.Z_SYNC_FLUSH); // if it does, process it and return it
+	} else {
+		inflate(chunk, zlib.Z_NO_FLUSH); // otherwise add it to the internal buffer and wait for the next chunk
+		return;
+	}
+	console.log(data.toString());
+});
 ```
 
 ## Benchmark

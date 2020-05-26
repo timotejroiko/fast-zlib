@@ -6,38 +6,36 @@ function lib(method,options = {}) {
 	if(!zlib[method]) { throw new Error("unknown or invalid zlib class"); }
 	if(!Number.isInteger(options.flush)) { options.flush = zlib.Z_SYNC_FLUSH; }
 	let z = new zlib[method](options);
-	let backups = [Buffer.concat,z._handle,z._handle.close,z.close];
+	let handle = z._handle;
+	let handleClose = z._handle.close;
+	let close = z.close;
+	let decomp = ["Inflate","InflateRaw","Unzip","Gunzip","BrotliDecompress"].includes(method);
+	let buffer = []; // for some reason _processChunk ignores flush flags when decompressing, so we create our own flushing buffer
 	let d = (data,f) => {
+		if(!Buffer.isBuffer(data)) {
+            if(!options.unsafe) { data = Buffer.from(data); }
+            else { throw new Error("unsafe mode only accepts buffers"); }
+        }
+		if(!Number.isInteger(f) && f !== true) { f = z._defaultFlushFlag; }
+		if(decomp && !f) { buffer.push(data); return Buffer.allocUnsafe(0); }
+		if(buffer.length && f) { buffer.push(data); data = Buffer.concat(buffer); buffer = []; }
 		z._handle.close = () => {};
 		z.close = () => {};
-		Buffer.concat = a => a;
 		let result;
-		if(!Number.isInteger(f)) { f = z._defaultFlushFlag; }
 		try {
-			if(!Buffer.isBuffer(data)) {
-				if(!options.unsafe) { data = Buffer.from(data); }
-				else { throw new Error("unsafe z only accepts buffers"); }
-			}
 			result = z._processChunk(data, f);
-			Buffer.concat = backups[0];
-		} catch (e) {
-			Buffer.concat = backups[0];
-			throw e;
-		} finally {
-			if(z) {
-				z._handle = backups[1];
-				z._handle.close = backups[2];
-				z.close = backups[3];
-				z.removeAllListeners("error");
-			} else {
-				throw new Error("zlib handle destroyed");
-			}
-		}
-		if(Array.isArray(result)) {
-			result = Buffer.concat(result);
+		} catch(e) {} finally {
+            if(z) {
+                z._handle = handle;
+                z._handle.close = handleClose;
+                z.close = close;
+                z.removeAllListeners("error");
+            } else {
+                throw new Error("zlib handle destroyed");
+            }
 		}
 		if(!options.unsafe) {
-			result = Buffer.from(result)
+			result = Buffer.from(result);
 		}
 		return result;
 	}
