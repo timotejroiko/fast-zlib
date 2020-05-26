@@ -43,6 +43,6 @@ function lib(method,options = {}) {
 	return d;
 }
 
-Object.assign(lib,zlib.constants);
+Object.assign(lib,zlib.constants,{Z_NO_APPEND:true});
 
 module.exports = lib;

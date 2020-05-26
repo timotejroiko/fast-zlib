@@ -156,21 +156,21 @@ console.log(inflate(data2).toString()) // 123456789
 console.log(inflate(data3).toString()) // 789
 ```
 
-Zlib automatically appends all data chunks with 0,0,255,255 as a chunk delimiter but a special `true` flag can be used to disable this behavior. Using this flag might increase performance but can also cause unforseen issues.
+Zlib automatically appends all data chunks with 0,0,255,255 as a chunk delimiter but a custom Z_NO_APPEND flag can be used, which works like Z_SYNC_FLUSH but does not append a delimiter. Using this non-standard flag might increase performance but cannot be interchanged with Z_FULL_FLUSH and might introduce other unforeseen issues.
 
 ```js
 let deflate = zlib("deflate");
 
 let data = "123456789";
 
-let chunk1 = deflate(data, true); // Buffer(13) [120, 156, 50, 52, 50, 54, 49, 53, 51, 183, 176, 4, 8]
-let chunk2 = deflate(data, true); // Buffer(5) [32, 67, 24, 3, 32]
-let chunk3 = deflate(data, true); // Buffer(5) [128, 224, 12, 128, 0]
+let chunk1 = deflate(data, zlib.Z_NO_APPEND); // Buffer(13) [120, 156, 50, 52, 50, 54, 49, 53, 51, 183, 176, 4, 8]
+let chunk2 = deflate(data, zlib.Z_NO_APPEND); // Buffer(5) [32, 67, 24, 3, 32]
+let chunk3 = deflate(data, zlib.Z_NO_APPEND); // Buffer(5) [128, 224, 12, 128, 0]
 ```
 
 ## Caveats
 
-Because of the shared context, decompression must be done in exactly the same order as compression because each chunk sequentially complements the previous and the next. Attempting to decode a chunk out of order will throw an error and invalidate the decompressor's internal state, forcing you to create a new decompressor and start again from the beginning or from the last checkpoint, or destroying both and starting a new compressor and decompressor pair.
+In shared context, decompression must be done in exactly the same order as compression because each chunk sequentially complements the previous and the next. Attempting to decode a chunk out of order will throw an error and invalidate the decompressor's internal state, forcing you to create a new decompressor and start again from the beginning or from the last checkpoint, or destroying both and starting a new compressor and decompressor pair.
 
 ```js
 let chunk1 = deflate(data)
@@ -189,7 +189,7 @@ When working with streams where fragmentation can occur, such as TCP streams, it
 stream.on("data", chunk => {
 	let data;
 	if(chunk.length >= 4 && chunk.readUInt32BE(chunk.length - 4) === 0xffff) { // check if the chunk ends with 0,0,255,255
-		data = inflate(chunk, zlib.Z_SYNC_FLUSH); // if it does, process it and return it
+		data = inflate(chunk, zlib.Z_SYNC_FLUSH); // if it does, process it and return the result
 	} else {
 		inflate(chunk, zlib.Z_NO_FLUSH); // otherwise add it to the internal buffer and wait for the next chunk
 		return;
