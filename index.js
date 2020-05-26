@@ -13,9 +13,9 @@ function lib(method,options = {}) {
 	let buffer = []; // for some reason _processChunk ignores flush flags when decompressing, so we create our own flushing buffer
 	let d = (data,f) => {
 		if(!Buffer.isBuffer(data)) {
-            if(!options.unsafe) { data = Buffer.from(data); }
-            else { throw new Error("unsafe mode only accepts buffers"); }
-        }
+			if(!options.unsafe) { data = Buffer.from(data); }
+			else { throw new Error("unsafe mode only accepts buffers"); }
+		}
 		if(!Number.isInteger(f) && f !== true) { f = z._defaultFlushFlag; }
 		if(decomp && !f) { buffer.push(data); return Buffer.allocUnsafe(0); }
 		if(buffer.length && f) { buffer.push(data); data = Buffer.concat(buffer); buffer = []; }
@@ -25,14 +25,14 @@ function lib(method,options = {}) {
 		try {
 			result = z._processChunk(data, f);
 		} catch(e) {} finally {
-            if(z) {
-                z._handle = handle;
-                z._handle.close = handleClose;
-                z.close = close;
-                z.removeAllListeners("error");
-            } else {
-                throw new Error("zlib handle destroyed");
-            }
+			if(z) {
+				z._handle = handle;
+				z._handle.close = handleClose;
+				z.close = close;
+				z.removeAllListeners("error");
+			} else {
+				throw new Error("zlib handle destroyed");
+			}
 		}
 		if(!options.unsafe) {
 			result = Buffer.from(result);
