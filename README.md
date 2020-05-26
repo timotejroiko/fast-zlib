@@ -170,20 +170,18 @@ let chunk3 = deflate(data, zlib.Z_NO_APPEND); // Buffer(5) [128, 224, 12, 128, 0
 
 ## Caveats
 
-In shared context, decompression must be done in exactly the same order as compression because each chunk sequentially complements the previous and the next. Attempting to decode a chunk out of order will throw an error and invalidate the decompressor's internal state, forcing you to create a new decompressor and start again from the beginning or from the last checkpoint, or destroying both and starting a new compressor and decompressor pair.
+In shared context, decompression must be done in exactly the same order as compression because each chunk sequentially complements the previous and the next. Attempting to decode a chunk out of order will throw an error and reset the decompressor so it has to restart from the beginning or from the last checkpoint. Alternatively you can destroy both and create a new compressor/decompressor pair.
 
 ```js
 let chunk1 = deflate(data)
 let chunk2 = deflate(data)
 
 inflate(chunk2) // error
-inflate(chunk1) // error because the inflator is now invalid
-inflate = fastzlib("inflate") // create a new inflator and start from the beginning
 inflate(chunk1) // works
 inflate(chunk2) // works
 ```
 
-When working with streams where fragmentation can occur, such as TCP streams, its a good idea to watch for zlib's delimiter and join chunks together. Decompression will still work with incomplete chunks but will return incomplete data that you will need to join yourself.
+When working with streams where fragmentation can occur (such as TCP streams) its a good idea to watch for zlib's delimiter and join chunks together. Decompression will still work with incomplete chunks but will return incomplete data that you will need to join yourself.
 
 ```js
 stream.on("data", chunk => {

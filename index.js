@@ -10,7 +10,7 @@ function lib(method,options = {}) {
 	let handleClose = z._handle.close;
 	let close = z.close;
 	let decomp = ["Inflate","InflateRaw","Unzip","Gunzip","BrotliDecompress"].includes(method);
-	let buffer = []; // for some reason _processChunk ignores flush flags when decompressing, so we create our own flushing buffer
+	let buffer = []; // for some reason _processChunk ignores Z_NO_FLUSH when decompressing, so we create our own buffer for Z_NO_FLUSH
 	let d = (data,f) => {
 		if(!Buffer.isBuffer(data)) {
 			if(!options.unsafe) { data = Buffer.from(data); }
@@ -22,17 +22,18 @@ function lib(method,options = {}) {
 		z._handle.close = () => {};
 		z.close = () => {};
 		let result;
+		let error;
 		try {
 			result = z._processChunk(data, f);
-		} catch(e) {} finally {
-			if(z) {
-				z._handle = handle;
-				z._handle.close = handleClose;
-				z.close = close;
-				z.removeAllListeners("error");
-			} else {
-				throw new Error("zlib handle destroyed");
-			}
+		} catch(e) {
+			z.reset();
+			error = e;
+		} finally {
+			z._handle = handle;
+			z._handle.close = handleClose;
+			z.close = close;
+			z.removeAllListeners("error");
+			if(error) { throw error; }
 		}
 		if(!options.unsafe) {
 			result = Buffer.from(result);
