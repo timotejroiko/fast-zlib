@@ -1,4 +1,4 @@
-# fast-zlib-sync
+# fast-zlib
 
 Or how to trick node's native zlib module into performing shared context compression synchronously.
 
@@ -19,7 +19,7 @@ Node does however include all the necessary tools and functionality in its priva
 Usage is similar to any other synchronous compression library, compress a chunk, then decompress it elsewhere.
 
 ```js
-let zlib = require("fast-zlib-sync");
+let zlib = require("fast-zlib");
 
 let deflate = zlib("deflate");
 let inflate = zlib("inflate");
@@ -47,7 +47,7 @@ This package is essentially a function that returns a compressor or a decompress
 All major zlib classes are supported:
 
 ```js
-let zlib = require("fast-zlib-sync");
+let zlib = require("fast-zlib");
 
 let inflate = zlib("inflate");
 let deflate = zlib("deflate");
