@@ -6,9 +6,9 @@ function lib(method,options = {}) {
 	method = method[0].toUpperCase() + method.substr(1);
 	if(!methods.includes(method)) { throw new Error("invalid or unsupported zlib class"); }
 	let brotli = method.startsWith("Brotli");
+	let unsafe = options.flush === true;
 	if(!Number.isInteger(options.flush)) { options.flush = brotli ? zlib.constants.BROTLI_OPERATION_FLUSH : zlib.constants.Z_SYNC_FLUSH; }
 	let z = new zlib[method](options);
-	if(options.flush === true) { z._defaultFlushFlag = true; }
 	let handle = z._handle;
 	let handleClose = z._handle.close;
 	let close = z.close;
@@ -49,6 +49,7 @@ function lib(method,options = {}) {
 		}
 		return result;
 	}
+	if(unsafe) { z._defaultFlushFlag = true; }
 	d.zlib = z;
 	return d;
 }
