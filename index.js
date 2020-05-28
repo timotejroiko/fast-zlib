@@ -8,6 +8,7 @@ function lib(method,options = {}) {
 	let brotli = method.startsWith("Brotli");
 	if(!Number.isInteger(options.flush)) { options.flush = brotli ? zlib.constants.BROTLI_OPERATION_FLUSH : zlib.constants.Z_SYNC_FLUSH; }
 	let z = new zlib[method](options);
+	if(options.flush === true) { z._defaultFlushFlag = true; }
 	let handle = z._handle;
 	let handleClose = z._handle.close;
 	let close = z.close;
