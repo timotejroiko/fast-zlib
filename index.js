@@ -13,10 +13,8 @@ function lib(method,options = {}) {
 	let close = z.close;
 	let buffer = [];
 	let d = (data,f) => {
-		if(f !== true) {
-			if(!Buffer.isBuffer(data)) { data = Buffer.from(data); }
-			if(!Number.isInteger(f)) { f = z._defaultFlushFlag; }
-		}
+		if(!Number.isInteger(f) && f !== true) { f = z._defaultFlushFlag; }
+		if(f!== true && !Buffer.isBuffer(data)) { data = Buffer.from(data); }
 		z._handle.close = () => {};
 		z.close = () => {};
 		let result;
