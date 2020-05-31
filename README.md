@@ -1,16 +1,14 @@
 # fast-zlib
 
-Or how to trick node's native zlib module into performing shared context compression synchronously.
-
-Warning: This package uses node's undocumented private APIs which may change in future node.js versions without notice.
+This package is a simple wrapper for zlib's `_processChunk()` method in Node.js and exposes an easy to use high level API for synchronous shared context compression.
 
 Method inspired from [isaacs/minizlib](https://github.com/isaacs/minizlib)
 
-## Shared Context / Context Takeover
+## Shared Context / Context Takeover / Sliding Window
 
-Shared context means that for each chunk of data that is compressed, some information about it is stored in the compressor so that the next chunk can be more efficiently compressed by reusing saved information. The decompressor will do the same thing, each decompressed chunk leaves some data behind to help it decode the next chunk.
+When working with data streams, zlib makes use of a "sliding window", in which a dictionary of common patterns is built and kept on both ends of the stream. When the compressor encounters a common pattern, it replaces it with a reference to the decompressor's dictionary and thus doesnt need to send that piece of data at all. This referenced pattern will simply be reconstructed by the decompressor using data from its dictionary. This is also known as context sharing or context takeover.
 
-Node's native zlib module does not offer a public API to perform this task synchronously and instead offers an asynchronous API using transform streams to be as non-blocking as possible, but because zlib is cpu-bound, its artificially made asynchronous which ends up having problems with performance, high latency and memory usage due to the overhead, and memory fragmentation, especially with small chunks of data. (see [ws#1369](https://github.com/websockets/ws/issues/1369) and [node#8871](https://github.com/nodejs/node/issues/8871))
+Node's native zlib module does not offer a public API to perform this task synchronously and instead offers an asynchronous API using transform streams to be as non-blocking as possible. Because zlib itself is synchronous and does not depend on anything other than cpu, artificially making it asynchronous ends up introducing problems with performance, high latency and and memory fragmentation, especially with a high volume of small chunks of data. (see [ws#1369](https://github.com/websockets/ws/issues/1369) and [node#8871](https://github.com/nodejs/node/issues/8871))
 
 Node does however include all the necessary tools and functionality in its private and undocumented APIs, which this package makes use of to provide an easy way to synchronously process chunks in a shared zlib context.
 
@@ -77,7 +75,7 @@ console.log(decompressed); // decompressed buffer
 console.log(decompressed.toString()); // wefwefwef
 ```
 
-Each zlib class can be passed an options object as per zlib's documentation - [https://nodejs.org/docs/latest-v12.x/api/zlib.html](https://nodejs.org/docs/latest-v12.x/api/zlib.html).
+Each zlib class can be passed an options object as per [zlib's documentation](https://nodejs.org/docs/latest-v12.x/api/zlib.html).
 
 ```js
 let deflateRaw = zlib("deflateRaw", {
@@ -160,7 +158,7 @@ console.log(inflate(data2).toString()) // abc789
 console.log(inflate(data3).toString()) // xyz789
 ```
 
-Brotli uses slightly different flush flags compared to deflate and gzip. Instead of `Z_NO_FLUSH` and `Z_SYNC_FLUSH`, its flags are `BROTLI_OPERATION_PROCESS` and `BROTLI_OPERATION_FLUSH`
+Not all classes support the same flags and there might be small differences in behavior between deflate, gzip and brotli. For example brotli uses slightly different flush flags compared to deflate and gzip. Instead of `Z_NO_FLUSH` and `Z_SYNC_FLUSH`, its flags are `BROTLI_OPERATION_PROCESS` and `BROTLI_OPERATION_FLUSH`. Check zlib's documentation for more details about how each class works.
 
 ```js
 // default flag is zlib.BROTLI_OPERATION_FLUSH
@@ -176,7 +174,7 @@ let data = compress("789",zlib.constants.BROTLI_OPERATION_FLUSH);
 console.log(decompress(data).toString()); // 123456789
 ```
 
-When working with streams where fragmentation can occur (such as TCP streams) its a good idea to watch for zlib's delimiter and join chunks together. Decompression will still work with incomplete chunks but will return incomplete data that you will need to join yourself.
+When working with streams where fragmentation can occur (such as TCP streams) its a good idea to watch for zlib's delimiter and join chunks together. Decompression will still work with incomplete chunks but will return incomplete data that you will need to process yourself.
 
 ```js
 stream.on("data", chunk => {
@@ -196,7 +194,7 @@ soon
 
 ## Unsafe Mode
 
-This package contains an additional `Z_SYNC_FLUSH_UNSAFE` flag for maximum performance, but it can cause some issues if not used carefully. It cannot be used with deflate's Z_FULL_FLUSH, it does not append zlib's signature block delimiter (0,0,255,255), only accepts a Buffer as input, and reuses existing buffers when possible.
+This package contains an additional `Z_SYNC_FLUSH_UNSAFE` experimental flag for maximum performance, but it can cause some issues if not used carefully. It cannot be used with deflate's Z_FULL_FLUSH, it does not append zlib's signature block delimiter (0,0,255,255), only accepts a Buffer as input, and reuses existing buffers when possible.
 
 ```js
 let deflate = zlib("deflate");
