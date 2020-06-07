@@ -10,7 +10,7 @@ When working with data streams, zlib makes use of a "sliding window", in which a
 
 Node's native zlib module does not offer a public API to perform this task synchronously and instead offers an asynchronous API using transform streams to be as non-blocking as possible. Because zlib itself is synchronous and does not depend on anything other than cpu, artificially making it asynchronous ends up introducing problems with performance, high latency and and memory fragmentation, especially with a high volume of small chunks of data. (see [ws#1369](https://github.com/websockets/ws/issues/1369) and [node#8871](https://github.com/nodejs/node/issues/8871))
 
-Node does however include all the necessary tools and functionality in its private and undocumented APIs, which this package makes use of to provide an easy way to synchronously process chunks in a shared zlib context.
+Node does however include all the necessary tools and functionality in its private and undocumented APIs, which this package makes use of to provide an easy and fast way to synchronously process chunks in a shared zlib context.
 
 ## Usage
 
