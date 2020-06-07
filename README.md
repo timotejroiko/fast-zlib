@@ -1,6 +1,6 @@
 # fast-zlib
 
-This package is a simple wrapper for zlib's `_processChunk()` method in Node.js and exposes an easy to use high level API for synchronous shared context compression.
+This package is a simple `zlib` wrapper for Node.js that exposes functions for synchronous shared context compression.
 
 Method inspired from [isaacs/minizlib](https://github.com/isaacs/minizlib)
 
@@ -8,9 +8,9 @@ Method inspired from [isaacs/minizlib](https://github.com/isaacs/minizlib)
 
 When working with data streams, zlib makes use of a "sliding window", in which a dictionary of common patterns is built and kept on both ends of the stream. When the compressor encounters a common pattern, it replaces it with a reference to the decompressor's dictionary and thus doesnt need to send that piece of data at all. This referenced pattern will simply be reconstructed by the decompressor using data from its dictionary. This is also known as context sharing or context takeover.
 
-Node's native zlib module does not offer a public API to perform this task synchronously and instead offers an asynchronous API using transform streams to be as non-blocking as possible. Because zlib itself is synchronous and does not depend on anything other than cpu, artificially making it asynchronous ends up introducing problems with performance, high latency and and memory fragmentation, especially with a high volume of small chunks of data. (see [ws#1369](https://github.com/websockets/ws/issues/1369) and [node#8871](https://github.com/nodejs/node/issues/8871))
+Node's native zlib module does not offer a public API to perform this task synchronously and instead offers an asynchronous API using transform streams. Because zlib itself is synchronous and does not depend on anything other than cpu, artificially making it asynchronous may cause problems with performance, high latency and memory fragmentation, especially with a high volume of small chunks of data. (see [ws#1369](https://github.com/websockets/ws/issues/1369) and [node#8871](https://github.com/nodejs/node/issues/8871))
 
-Node does however include all the necessary tools and functionality in its private and undocumented APIs, which this package makes use of to provide an easy and fast way to synchronously process chunks in a shared zlib context.
+Node does however include all the necessary tools and functionality in its private and undocumented APIs, for instance its `_processChunk()` method, which this package makes use of to provide an easy and fast way to synchronously process chunks in a shared zlib context.
 
 ## Usage
 
@@ -46,7 +46,7 @@ let decoded3 = inflate(chunk3);
 console.log(decoded3.toString()); // "123456789"
 ```
 
-This package is essentially a function that returns a compressor or a decompressor function powered by zlib behind the scenes.
+This package is essentially a high-order function that returns a compressor or a decompressor powered by zlib behind the scenes.
 
 All major zlib classes are supported:
 
@@ -106,21 +106,6 @@ let result = inflate(data);
 console.log(result.toString()); // 123456789hij
 ```
 
-The function's internal zlib instance is also exposed via a .zlib property for advanced usage.
-
-```js
-let deflate = zlib("deflate");
-let deflate = zlib("inflate");
-
-deflate("789", zlib.constants.Z_NO_FLUSH);
-
-// here deflate.zlib is an instance of zlib.createDeflate() and we can use its internal methods
-deflate.zlib.flush();
-let data = deflate.zlib.read();
-
-console.log(inflate(data).toString()); // 789
-```
-
 In shared context, decompression must be done in exactly the same order as compression because each chunk sequentially complements the previous and the next. Attempting to decode a chunk out of order will throw an error and reset the decompressor so it has to either restart from the beginning or you will have to destroy both and create a new compressor/decompressor pair.
 
 ```js
@@ -132,7 +117,7 @@ inflate(chunk1); // works
 inflate(chunk2); // works
 ```
 
-Flush flags can be used to achieve fine control over the process and even create checkpoints from where decompression can resume
+Flush flags can be used to achieve fine control over the compression process and even create checkpoints from where decompression can resume
 
 ```js
 let deflate = zlib("deflateRaw");
@@ -174,23 +159,30 @@ let data = compress("789",zlib.constants.BROTLI_OPERATION_FLUSH);
 console.log(decompress(data).toString()); // 123456789
 ```
 
-When working with streams where fragmentation can occur (such as TCP streams) its a good idea to watch for zlib's delimiter and join chunks together. Decompression will still work with incomplete chunks but will return incomplete data that you will need to process yourself.
-
-```js
-stream.on("data", chunk => {
-	if(chunk.length >= 4 && chunk.readUInt32BE(chunk.length - 4) === 0xffff) { // check if the chunk ends with 0,0,255,255
-		let data = inflate(chunk, zlib.constants.Z_SYNC_FLUSH); // if it does, process it and continue
-		console.log(data.toString())
-	} else {
-		inflate(chunk, zlib.constants.Z_NO_FLUSH); // otherwise add it to the internal buffer and wait for the next chunk
-		return;
-	}
-});
-```
-
 ## Benchmark
 
-soon
+Tested on Node.js v12.16.1 running on an i5 7300HQ 2.5ghz
+
+Using Deflate on randomized json messages of various sizes
+
+| Library | \~ 0.03kb | \~ 0.5kb | \~ 11kb |
+|---------------|---------|--------|-------|
+| zlib (stream) | 12839 op/s | 7441 op/s | 978 op/s |
+| pako (stream) | 23071 op/s | 8961 op/s | 638 op/s |
+| minizlib | 38939 op/s | 14933 op/s | 1131 op/s |
+| fast-zlib | 61899 op/s | 16533 op/s | 1125 op/s |
+
+Inflating them back
+
+| Library | \~ 0.03kb | \~ 0.5kb | \~ 11kb |
+|---------------|---------|--------|-------|
+| zlib (stream) | 13579 op/s | 10378 op/s | 3276 op/s |
+| pako (stream) | 44077 op/s | 25278 op/s | 4159 op/s |
+| minizlib | 68383 op/s | 39486 op/s | 7776 op/s |
+| zlib-sync | 126418 op/s | 46206 op/s | 7384 op/s |
+| fast-zlib | 138365 op/s | 53413 op/s | 8097 op/s |
+
+More benchmarks can be found at [zlib-benchmark](https://github.com/timotejroiko/zlib-benchmark)
 
 ## Unsafe Mode
 

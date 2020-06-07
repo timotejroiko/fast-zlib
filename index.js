@@ -50,7 +50,7 @@ function lib(method,options = {}) {
 		return result;
 	}
 	if(unsafe) { z._defaultFlushFlag = true; }
-	d.zlib = z;
+	d._zlib = z;
 	return d;
 }
 
