@@ -161,7 +161,7 @@ console.log(decompress(data).toString()); // 123456789
 
 ## Benchmark
 
-Tested on Node.js v12.16.1 running on an i5 7300HQ 2.5ghz
+Tested on Node.js v12.16.1 running on an i5 7300HQ 2.5ghz with default zlib options
 
 Using Deflate on randomized json messages of various sizes
 
