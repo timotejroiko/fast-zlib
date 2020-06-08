@@ -22,7 +22,7 @@ This package is essentially a high-order function that returns a compressor or a
 - `options` (Object): An options object for the zlib instance
 - Returns (Function): A compressor or a decompressor function
 
-The returned function is powered by a zlib class instance behind the scenes. Buffer-compatible inputs are Buffer, TypedArray, DataView, ArrayBuffer and String.
+The returned function is powered by a zlib class instance behind the scenes.
 
 ### instance(data[, flag])
 
