@@ -1,6 +1,6 @@
 {
   "name": "fast-zlib",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Synchronous shared context compression with node's native zlib",
   "main": "index.js",
   "scripts": {
