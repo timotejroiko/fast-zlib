@@ -3,6 +3,7 @@
   "version": "1.0.3",
   "description": "Synchronous shared context compression with node's native zlib",
   "main": "index.js",
+  "typings": "./index.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 0"
   },
@@ -19,5 +20,8 @@
     "stream"
   ],
   "author": "Timotej Valentin Rojko",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "*"
+  }
 }
