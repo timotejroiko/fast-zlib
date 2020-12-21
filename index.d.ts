@@ -1,12 +1,15 @@
+import * as zlib from "zlib";
+export { constants } from "zlib";
+
 declare module "fast-zlib" {
-    import * as z from "zlib";
-    interface Instance {
-        (data: string | Buffer, flushFlag: number): Buffer;
-        zlib: z.Zlib
+    export class Inflate {
+        constructor(options?: zlib.ZlibOptions);
+        process: (data: Buffer, flag?: number) => Buffer;
+        instance: zlib.Inflate;
     }
-    const zlib: {
-        (method: string, options?: z.ZlibOptions): Instance;
-        constants: object;
+    export class Deflate {
+        constructor(options?: zlib.ZlibOptions);
+        process: (data: Buffer, flag?: number) => Buffer;
+        instance: zlib.Deflate;
     }
-    export = zlib;
 }
