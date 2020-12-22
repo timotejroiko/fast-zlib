@@ -60,7 +60,12 @@ class Base {
 		return result;
 	}
 	close() {
+		if(!this.instance) { return; }
+		this.instance._handle.close();
+		this.instance._handle = null;
 		this.instance.close();
+		this.instance = null;
+		this.process = () => void 0;
 	}
 }
 
