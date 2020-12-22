@@ -15,12 +15,11 @@ import {
 export { constants } from "zlib";
 
 declare abstract class Base {
-    process: (buffer: Buffer, flag?: number) => Buffer;
-    process: (arrayBuffer: WithImplicitCoercion<ArrayBuffer | SharedArrayBuffer>, flag?: number) => Buffer;
-    process: (data: Uint8Array | ReadonlyArray<number>, flag?: number) => Buffer;
-    process: (data: WithImplicitCoercion<Uint8Array | ReadonlyArray<number> | string>, flag?: number) => Buffer;
-    process: (str: WithImplicitCoercion<string> | { [Symbol.toPrimitive](hint: 'string'): string }, flag?: number) => Buffer;
-    close: () => void;
+    process(arrayBuffer: WithImplicitCoercion<ArrayBuffer | SharedArrayBuffer>, flag?: number): Buffer;
+    process(data: Uint8Array | ReadonlyArray<number>, flag?: number): Buffer;
+    process(data: WithImplicitCoercion<Uint8Array | ReadonlyArray<number> | string>, flag?: number): Buffer;
+    process(string: WithImplicitCoercion<string> | { [Symbol.toPrimitive](hint: 'string'): string }, flag?: number): Buffer;
+    close(): void;
 }
 
 declare abstract class ZlibBase extends Base {
