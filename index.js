@@ -15,20 +15,21 @@ class Base {
 				options.flush = zlib.constants.Z_SYNC_FLUSH;
 			}
 		}
-		this._buffer = [];
 		this.instance = new zlib[type](options);
+		this._buffer = [];
+		this._kError = Object.getOwnPropertySymbols(this.instance).find(x => x.toString().includes("kError"));
+		this._backups = [this.instance.close, this.instance._handle, this.instance._handle.close];
 	}
 	process(data, flag) {
 		let z = this.instance;
 		let buffer = this._buffer;
 		let nff = this._noFlushFlag;
-		if(!Number.isInteger(flag)) { flag = z._defaultFlushFlag; }
-		if(!Buffer.isBuffer(data)) { data = Buffer.from(data); }
-		let c = z.close;
-		let h = z._handle;
-		let hc = z._handle.close;
+		let kError = this._kError;
+		let [c,h,hc] = this._backups;
 		let result;
 		let error;
+		if(!Number.isInteger(flag)) { flag = z._defaultFlushFlag; }
+		if(!Buffer.isBuffer(data)) { data = Buffer.from(data); }
 		z.close = () => void 0;
 		z._handle.close = () => void 0;
 		try {
@@ -36,12 +37,13 @@ class Base {
 		} catch(e) {
 			error = e;
 		}
+		z.close = c;
 		z._handle = h;
 		z._handle.close = hc;
-		z.close = c;
 		z.removeAllListeners("error");
 		if(error) {
 			z.reset();
+			z[kError] = null;
 			throw error;
 		}
 		result = Buffer.from(result);
