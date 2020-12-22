@@ -2,133 +2,117 @@
 
 const zlib = require("zlib");
 
-function process(data, flag) {
-	let z = this._zlib;
-	let buffer = this._buffer;
-	let nff = this._noFlushFlag;
-	if(!Number.isInteger(flag)) { flag = z._defaultFlushFlag; }
-	if(!Buffer.isBuffer(data)) { data = Buffer.from(data); }
-	let c = z.close;
-	let h = z._handle;
-	let hc = z._handle.close;
-	let result;
-	let error;
-	z.close = () => {};
-	z._handle.close = () => {};
-	try {
-		result = z._processChunk(data, flag);
-	} catch(e) {
-		error = e;
-	}
-	z._handle = h;
-	z._handle.close = hc;
-	z.close = c;
-	z.removeAllListeners("error");
-	if(error) {
-		z.reset();
-		throw error;
-	}
-	result = Buffer.from(result);
-	if(flag === nff) {
-		if(result.length) {
-			buffer.push(result);
-			return Buffer.allocUnsafe(0);
+class Base {
+	constructor(type, options) {
+		if(type.startsWith("Brotli")) {
+			this._noFlushFlag = zlib.constants.BROTLI_OPERATION_PROCESS;
+			if(!Number.isInteger(options.flush)) {
+				options.flush = zlib.constants.BROTLI_OPERATION_FLUSH;
+			}
+		} else {
+			this._noFlushFlag = zlib.constants.Z_NO_FLUSH;
+			if(!Number.isInteger(options.flush)) {
+				options.flush = zlib.constants.Z_SYNC_FLUSH;
+			}
 		}
-	} else if(buffer.length) {
-		buffer.push(result);
-		result = Buffer.concat(buffer);
-		buffer = [];
-	}
-	return result;
-}
-
-exports.Inflate = class {
-	constructor(options = {}) {
-		if(!Number.isInteger(options.flush)) { options.flush = zlib.constants.Z_SYNC_FLUSH; }
-		this.instance = new zlib.Inflate(options);
-		this.process = process.bind(this);
 		this._buffer = [];
-		this._noFlushFlag = zlib.constants.Z_NO_FLUSH;
+		this.instance = new zlib[type](options);
 	}
-}
-
-exports.Deflate = class {
-	constructor(options = {}) {
-		if(!Number.isInteger(options.flush)) { options.flush = zlib.constants.Z_SYNC_FLUSH; }
-		this.instance = new zlib.Deflate(options);
-		this.process = process.bind(this);
-		this._buffer = [];
-		this._noFlushFlag = zlib.constants.Z_NO_FLUSH;
+	process(data, flag) {
+		let z = this.instance;
+		let buffer = this._buffer;
+		let nff = this._noFlushFlag;
+		if(!Number.isInteger(flag)) { flag = z._defaultFlushFlag; }
+		if(!Buffer.isBuffer(data)) { data = Buffer.from(data); }
+		let c = z.close;
+		let h = z._handle;
+		let hc = z._handle.close;
+		let result;
+		let error;
+		z.close = () => void 0;
+		z._handle.close = () => void 0;
+		try {
+			result = z._processChunk(data, flag);
+		} catch(e) {
+			error = e;
+		}
+		z._handle = h;
+		z._handle.close = hc;
+		z.close = c;
+		z.removeAllListeners("error");
+		if(error) {
+			z.reset();
+			throw error;
+		}
+		result = Buffer.from(result);
+		if(flag === nff) {
+			if(result.length) {
+				buffer.push(result);
+				return Buffer.allocUnsafe(0);
+			}
+		} else if(buffer.length) {
+			buffer.push(result);
+			result = Buffer.concat(buffer);
+			buffer = [];
+		}
+		return result;
 	}
-}
-
-exports.InflateRaw = class {
-	constructor(options = {}) {
-		if(!Number.isInteger(options.flush)) { options.flush = zlib.constants.Z_SYNC_FLUSH; }
-		this.instance = new zlib.InflateRaw(options);
-		this.process = process.bind(this);
-		this._buffer = [];
-		this._noFlushFlag = zlib.constants.Z_NO_FLUSH;
-	}
-}
-
-exports.DeflateRaw = class {
-	constructor(options = {}) {
-		if(!Number.isInteger(options.flush)) { options.flush = zlib.constants.Z_SYNC_FLUSH; }
-		this.instance = new zlib.DeflateRaw(options);
-		this.process = process.bind(this);
-		this._buffer = [];
-		this._noFlushFlag = zlib.constants.Z_NO_FLUSH;
-	}
-}
-
-exports.Gzip = class {
-	constructor(options = {}) {
-		if(!Number.isInteger(options.flush)) { options.flush = zlib.constants.Z_SYNC_FLUSH; }
-		this.instance = new zlib.Gzip(options);
-		this.process = process.bind(this);
-		this._buffer = [];
-		this._noFlushFlag = zlib.constants.Z_NO_FLUSH;
+	close() {
+		this.instance.close();
 	}
 }
 
-exports.Gunzip = class {
+exports.Inflate = class extends Base {
 	constructor(options = {}) {
-		if(!Number.isInteger(options.flush)) { options.flush = zlib.constants.Z_SYNC_FLUSH; }
-		this.instance = new zlib.Gunzip(options);
-		this.process = process.bind(this);
-		this._buffer = [];
-		this._noFlushFlag = zlib.constants.Z_NO_FLUSH;
+		super("Inflate", options);
 	}
 }
 
-exports.Unzip = class {
+exports.Deflate = class extends Base {
 	constructor(options = {}) {
-		if(!Number.isInteger(options.flush)) { options.flush = zlib.constants.Z_SYNC_FLUSH; }
-		this.instance = new zlib.Unzip(options);
-		this.process = process.bind(this);
-		this._buffer = [];
-		this._noFlushFlag = zlib.constants.Z_NO_FLUSH;
+		super("Deflate", options);
 	}
 }
 
-exports.BrotliCompress = class {
+exports.InflateRaw = class extends Base {
 	constructor(options = {}) {
-		if(!Number.isInteger(options.flush)) { options.flush = zlib.constants.BROTLI_OPERATION_FLUSH; }
-		this.instance = new zlib.BrotliCompress(options);
-		this.process = process.bind(this);
-		this._buffer = [];
-		this._noFlushFlag = zlib.constants.BROTLI_OPERATION_PROCESS;
+		super("InflateRaw", options);
 	}
 }
 
-exports.BrotliDecompress = class {
+exports.DeflateRaw = class extends Base {
 	constructor(options = {}) {
-		if(!Number.isInteger(options.flush)) { options.flush = zlib.constants.BROTLI_OPERATION_FLUSH; }
-		this.instance = new zlib.BrotliDecompress(options);
-		this.process = process.bind(this);
-		this._buffer = [];
-		this._noFlushFlag = zlib.constants.BROTLI_OPERATION_PROCESS;
+		super("DeflateRaw", options);
+	}
+}
+
+exports.Gzip = class extends Base {
+	constructor(options = {}) {
+		super("Gzip", options);
+	}
+}
+
+exports.Gunzip = class extends Base {
+	constructor(options = {}) {
+		super("Gunzip", options);
+	}
+}
+
+exports.Unzip = class extends Base {
+	constructor(options = {}) {
+		super("Unzip", options);
+	}
+}
+
+exports.BrotliCompress = class extends Base {
+	constructor(options = {}) {
+		super("BrotliCompress", options);
+	}
+}
+
+exports.BrotliDecompress = class extends Base {
+	constructor(options = {}) {
+		super("BrotliDecompress", options);
 	}
 }
 

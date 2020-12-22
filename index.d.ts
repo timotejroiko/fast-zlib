@@ -11,16 +11,24 @@ import {
     BrotliCompress as BrotliCompressClass,
     BrotliDecompress as BrotliDecompressClass
 } from "zlib";
+
 export { constants } from "zlib";
 
-declare abstract class ZlibBase {
-    constructor(options?: ZlibOptions);
-    process: (data: Buffer, flag?: number) => Buffer;
+declare abstract class Base {
+    process: (buffer: Buffer, flag?: number) => Buffer;
+    process: (arrayBuffer: WithImplicitCoercion<ArrayBuffer | SharedArrayBuffer>, flag?: number) => Buffer;
+    process: (data: Uint8Array | ReadonlyArray<number>, flag?: number) => Buffer;
+    process: (data: WithImplicitCoercion<Uint8Array | ReadonlyArray<number> | string>, flag?: number) => Buffer;
+    process: (str: WithImplicitCoercion<string> | { [Symbol.toPrimitive](hint: 'string'): string }, flag?: number) => Buffer;
+    close: () => void;
 }
 
-declare abstract class BrotliBase {
+declare abstract class ZlibBase extends Base {
+    constructor(options?: ZlibOptions);
+}
+
+declare abstract class BrotliBase extends Base {
     constructor(options?: BrotliOptions);
-    process: (data: Buffer, flag?: number) => Buffer;
 }
 
 declare module "fast-zlib" {
