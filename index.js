@@ -20,16 +20,16 @@ class Base {
 		this._kError = Object.getOwnPropertySymbols(this.instance).find(x => x.toString().includes("kError"));
 		this._backups = [this.instance.close, this.instance._handle, this.instance._handle.close];
 	}
-	process(data, flag) {
-		let z = this.instance;
+	process(_data, _flag) {
+		const z = this.instance;
+		const nff = this._noFlushFlag;
+		const kError = this._kError;
+		const [c, h, hc] = this._backups;
+		const flag = !Number.isInteger(_flag) ? z._defaultFlushFlag : _flag;
+		const data = !Buffer.isBuffer(_data) ? Buffer.from(_data) : _data;
 		let buffer = this._buffer;
-		let nff = this._noFlushFlag;
-		let kError = this._kError;
-		let [c,h,hc] = this._backups;
 		let result;
 		let error;
-		if(!Number.isInteger(flag)) { flag = z._defaultFlushFlag; }
-		if(!Buffer.isBuffer(data)) { data = Buffer.from(data); }
 		z.close = () => void 0;
 		z._handle.close = () => void 0;
 		try {
@@ -73,56 +73,55 @@ exports.Inflate = class extends Base {
 	constructor(options = {}) {
 		super("Inflate", options);
 	}
-}
+};
 
 exports.Deflate = class extends Base {
 	constructor(options = {}) {
 		super("Deflate", options);
 	}
-}
+};
 
 exports.InflateRaw = class extends Base {
 	constructor(options = {}) {
 		super("InflateRaw", options);
 	}
-}
+};
 
 exports.DeflateRaw = class extends Base {
 	constructor(options = {}) {
 		super("DeflateRaw", options);
 	}
-}
+};
 
 exports.Gzip = class extends Base {
 	constructor(options = {}) {
 		super("Gzip", options);
 	}
-}
+};
 
 exports.Gunzip = class extends Base {
 	constructor(options = {}) {
 		super("Gunzip", options);
 	}
-}
+};
 
 exports.Unzip = class extends Base {
 	constructor(options = {}) {
 		super("Unzip", options);
 	}
-}
+};
 
 exports.BrotliCompress = class extends Base {
 	constructor(options = {}) {
 		super("BrotliCompress", options);
 	}
-}
+};
 
 exports.BrotliDecompress = class extends Base {
 	constructor(options = {}) {
 		super("BrotliDecompress", options);
 	}
-}
+};
 
 exports.constants = zlib.constants;
-
 exports.default = exports;

@@ -1,18 +1,18 @@
 # fast-zlib
 
-This package is a simple `zlib` wrapper for Node.js that exposes functions for synchronous shared context compression.
+A simple `zlib` wrapper for Node.js that enables synchronous shared context compression.
 
 ## Shared Context / Context Takeover / Sliding Window
 
 When working with data streams, zlib makes use of a "sliding window", in which a dictionary of common patterns is built and kept on both ends of the stream. When the compressor encounters a common pattern, it replaces it with a reference to the decompressor's dictionary and thus doesnt need to send that piece of data at all. This referenced pattern will simply be reconstructed by the decompressor using data from its dictionary. This is also known as context sharing or context takeover.
 
-Node's native zlib module does not offer a public API to perform this task synchronously and instead offers an asynchronous API using transform streams. Because zlib itself is synchronous, artificially defering it cause issues such as high latency and memory fragmentation, especially with a high volume of small chunks of data, for example websocket messages. (see [ws#1369](https://github.com/websockets/ws/issues/1369) and [node#8871](https://github.com/nodejs/node/issues/8871))
+Node's native zlib module does not offer a public API to perform this task synchronously and instead offers an asynchronous API using transform streams. Because zlib itself is synchronous, artificially defering it can cause issues such as high latency and memory fragmentation, especially when processing a high volume of small chunks of data like websocket messages. (see [ws#1369](https://github.com/websockets/ws/issues/1369) and [node#8871](https://github.com/nodejs/node/issues/8871))
 
 Node does however include all the necessary tools and functionality in its private and undocumented APIs, for instance its `_processChunk()` method, which this package makes use of to provide an easy and fast way to synchronously process chunks of data without losing the zlib context.
 
 ## Usage
 
-Fast-zlib exports a modified version of all zlib classes, for example:
+Fast-zlib exports a modified synchronous version of all zlib classes:
 
 ```js
 const zlib = require("fast-zlib");
@@ -40,16 +40,13 @@ import { Deflate } from "fast-zlib";
 let deflate = new Deflate();
 ```
 
-## API
+Each fast-zlib class is a wrapper around the original zlib class and looks like this:
 
-Each class instance is a wrapper around the original zlib class and looks like this:
+### constructor(options?)
 
-### new constructor(options?)
-
-Create a new instance of a fast-zlib wrapper class.
+Create a new instance of a fast-zlib class.
 
 * `options` - An optional object of zlib or brotli options as per node's zlib documentation.
-* `=> Instance` - Returns an instance of a fast-zlib class wrapper.
 
 ### .process(data, flag?)
 
@@ -61,7 +58,7 @@ Process a chunk of data.
 
 ### .close()
 
-Close the underlying zlib instance.
+Close the zlib handler and shut down the instance.
 
 * `=> void`
 
@@ -69,9 +66,9 @@ Close the underlying zlib instance.
 
 Access the underlying zlib instance for advanced usage.
 
-## Usage Examples
+## Examples
 
-Usage is similar to many other synchronous compression libries, compress a chunk, then decompress it elsewhere except that the instance keeps track of its compression state and sliding window contexts.
+Usage is very simple, compress a chunk of data and decompress it elsewhere. The instance keeps track of its compression state and sliding window contexts.
 
 ```js
 let zlib = require("fast-zlib");
@@ -98,7 +95,7 @@ inflate.process(chunk2).toString(); // "123456789"
 inflate.process(chunk3).toString(); // "123456789"
 ```
 
-Decompression must be done in exactly the same order as compression because each chunk sequentially complements the previous and the next. Attempting to decode a chunk out of order will throw an error and reset the decompressor so it has to either restart from the beginning or you will have to destroy both and create a new pair.
+Decompression must be done in exactly the same order as compression because chunks sequentially complement each other. Attempting to decode a chunk out of order may throw an error and reset the decompressor so it has to either restart from the beginning or you will have to destroy both and create a new pair.
 
 ```js
 let chunk1 = deflate.process(data);
@@ -113,33 +110,33 @@ Each zlib class can be passed an options object as per zlib's documentation.
 
 ```js
 let deflateRaw = new zlib.DeflateRaw({
-	chunkSize: 128 * 1024,
-	level: 8
+    chunkSize: 128 * 1024,
+    level: 8
 });
 let inflateRaw = new zlib.InflateRaw({
-	chunkSize: 64 * 1024
+    chunkSize: 64 * 1024
 });
 ```
 
-This library uses Z_SYNC_FLUSH as the default flush flag in order to process data immediately. For more control over the compression process, flush flags can be set as an option and also passed directly to the process function.
+This library uses Z_SYNC_FLUSH as the default flush flag in order to return data immediately. For more control over the compression process, flush flags can be set as an option and also passed directly to the process function.
 
 ```js
-// all of zlib's constants are accessible like in the original zlib
 let deflate = new zlib.Deflate({
-	flush: zlib.constants.Z_NO_FLUSH // set default flag to Z_NO_FLUSH
+    flush: zlib.constants.Z_NO_FLUSH // set default flag to Z_NO_FLUSH
 });
 let inflate = new zlib.Inflate();
 
-deflate("123"); // add data with no output due to default flush flag set to Z_NO_FLUSH
-deflate("456");
-deflate("789");
+deflate.process("123"); // add data
+deflate.process("456");
+deflate.process("789");
 
-let data = deflate("hij", zlib.constants.Z_SYNC_FLUSH); // process all data added so far at once with Z_SYNC_FLUSH
+// process all data added so far by passing Z_SYNC_FLUSH
+let data = deflate.process("hij", zlib.constants.Z_SYNC_FLUSH);
 
-inflate(data).toString(); // 123456789hij
+inflate.process(data).toString(); // 123456789hij
 ```
 
-Flush flags can be used to achieve fine control over the compression process. Not all classes support the same flags and there might be differences in behavior between deflate, gzip and brotli. For example brotli uses `BROTLI_OPERATION_PROCESS` and `BROTLI_OPERATION_FLUSH` instead of `Z_NO_FLUSH` and `Z_SYNC_FLUSH`. Check zlib's documentation for more details about how each class works.
+Other flush flags are also available and can be used to achieve fine control over the process. Not all classes support the same flags and there might be differences in behavior between them. For example brotli uses `BROTLI_OPERATION_PROCESS` and `BROTLI_OPERATION_FLUSH` instead of `Z_NO_FLUSH` and `Z_SYNC_FLUSH`. Check zlib's documentation for more details about how each class works.
 
 ```js
 // default flag is zlib.BROTLI_OPERATION_FLUSH
@@ -181,6 +178,6 @@ Inflate performance on the same messages
 | fast-zlib | 641532 op/s | 145444 op/s | 15194 op/s |
 
 *zlib-sync does not yet support compression.  
-*pako v2 removed support for synchronous decompression streams.
+*pako v2 removed support for decompressing with Z_SYNC_FLUSH.
 
 More benchmarks can be found at [zlib-benchmark](https://github.com/timotejroiko/zlib-benchmark)
