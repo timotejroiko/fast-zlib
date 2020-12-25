@@ -2,7 +2,7 @@
 
 const zlib = require("./index.js");
 const randomStrings = new Array(10).fill().map(() => Math.random().toString(36) + Math.random().toString(36));
-const methods = [["Deflate","Inflate"],["DeflateRaw","InflateRaw"],["Gzip","Gunzip"],["Gzip","Unzip"],["BrotliCompress","BrotliDecompress"]];
+const methods = [["Deflate", "Inflate"], ["DeflateRaw", "InflateRaw"], ["Gzip", "Gunzip"], ["Gzip", "Unzip"], ["BrotliCompress", "BrotliDecompress"]];
 
 for(const method of methods) {
 	console.log(`testing ${method.join("/")}`);
