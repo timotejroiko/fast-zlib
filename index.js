@@ -27,7 +27,7 @@ class Base {
 		const [c, h, hc] = this._backups;
 		const flag = !Number.isInteger(_flag) ? z._defaultFlushFlag : _flag;
 		const data = !Buffer.isBuffer(_data) ? Buffer.from(_data) : _data;
-		let buffer = this._buffer;
+		const buffer = this._buffer;
 		let result;
 		let error;
 		z.close = () => void 0;
