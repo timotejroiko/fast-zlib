@@ -55,7 +55,7 @@ class Base {
 		} else if(buffer.length) {
 			buffer.push(result);
 			result = Buffer.concat(buffer);
-			buffer = [];
+			this._buffer = [];
 		}
 		return result;
 	}
